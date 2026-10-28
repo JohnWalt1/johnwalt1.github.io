@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirPresenter - HP Controller</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; background: #121212; color: #fff; }
+    button { width: 90%; padding: 20px; margin: 10px 0; font-size: 18px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; }
+    #btnStart { background: #2ecc71; color: #000; }
+    #btnClick { background: #3498db; color: #fff; height: 140px; font-size: 22px; }
+    .box { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: monospace; text-align: left; }
+  </style>
+</head>
+<body>
+  <h2>📱 AirPresenter Remote</h2>
+  <p id="status">Status MQTT: Menghubungkan...</p>
+
+  <button id="btnStart" onclick="startSensor()">1. Aktifkan Sensor & Koneksi</button>
+  <button id="btnClick" ontouchstart="setClick(true)" ontouchend="setClick(false)">
+    🖱️ TAHAN UNTUK KLIK /<br>AYUN TANGAN UNTUK GESTUR
+  </button>
+
+  <div class="box" id="debug">Menunggu sensor aktif...</div>
+
+  <script>
+    // Sesuaikan nama topik dengan kelompok Anda
+    const TOPIC_TELEMETRY = "airpresenter/kelompok_01/telemetry";
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+    let accel = { x: 0, y: 0, z: 0 };
+    let gyro = { x: 0, y: 0, z: 0 };
+    let touchClick = false;
+    let isRunning = false;
+
+    client.on("connect", () => {
+      document.getElementById("status").innerText = "Status MQTT: Terhubung ke HiveMQ ✅";
+    });
+
+    // Data Processing 1 di Edge 1: Deadzone Filtering sederhana
+    function applyDeadzone(val, threshold = 0.05) {
+      return Math.abs(val) < threshold ? 0 : Number(val.toFixed(3));
+    }
+
+    function setClick(state) { touchClick = state; }
+
+    async function startSensor() {
+      // Izin khusus untuk iOS 13+
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+        const permission = await DeviceMotionEvent.requestPermission();
+        if (permission !== "granted") return alert("Izin sensor ditolak!");
+      }
+
+      window.addEventListener("devicemotion", (event) => {
+        if (event.accelerationIncludingGravity) {
+          accel.x = applyDeadzone(event.accelerationIncludingGravity.x || 0, 0.1);
+          accel.y = applyDeadzone(event.accelerationIncludingGravity.y || 0, 0.1);
+          accel.z = applyDeadzone(event.accelerationIncludingGravity.z || 0, 0.1);
+        }
+        if (event.rotationRate) {
+          // Konversi deg/s ke rad/s agar sesuai spesifikasi rancangan
+          const deg2rad = Math.PI / 180;
+          gyro.x = applyDeadzone((event.rotationRate.alpha || 0) * deg2rad, 0.05);
+          gyro.y = applyDeadzone((event.rotationRate.beta || 0) * deg2rad, 0.05);
+          gyro.z = applyDeadzone((event.rotationRate.gamma || 0) * deg2rad, 0.05);
+        }
+      });
+
+      if (!isRunning) {
+        isRunning = true;
+        document.getElementById("btnStart").style.display = "none";
+        // Kirim payload JSON setiap 50 ms (20 Hz) sesuai rancangan
+        setInterval(() => {
+          const payload = {
+            device_id: "hp_presenter",
+            timestamp: Date.now(),
+            accel: accel,
+            gyro: gyro,
+            touch_click: touchClick
+          };
+          client.publish(TOPIC_TELEMETRY, JSON.stringify(payload));
+          document.getElementById("debug").innerText = JSON.stringify(payload, null, 2);
+        }, 50);
+      }
+    }
+  </script>
+</body>
+</html>
