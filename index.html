@@ -25,8 +25,7 @@
   <div class="box" id="debug">Menunggu sensor aktif...</div>
 
   <script>
-    // Sesuaikan nama topik dengan kelompok Anda
-    const TOPIC_TELEMETRY = "airpresenter/kelompok_01/telemetry";
+    const TOPIC_TELEMETRY = "airpresenter/kelompok_05/telemetry";
     const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
     let accel = { x: 0, y: 0, z: 0 };
@@ -35,10 +34,8 @@
     let isRunning = false;
 
     client.on("connect", () => {
-      document.getElementById("status").innerText = "Status MQTT: Terhubung ke HiveMQ ✅";
+      document.getElementById("status").innerText = "Status MQTT: Terhubung ke HiveMQ";
     });
-
-    // Data Processing 1 di Edge 1: Deadzone Filtering sederhana
     function applyDeadzone(val, threshold = 0.05) {
       return Math.abs(val) < threshold ? 0 : Number(val.toFixed(3));
     }
@@ -46,7 +43,6 @@
     function setClick(state) { touchClick = state; }
 
     async function startSensor() {
-      // Izin khusus untuk iOS 13+
       if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
         const permission = await DeviceMotionEvent.requestPermission();
         if (permission !== "granted") return alert("Izin sensor ditolak!");
@@ -59,7 +55,6 @@
           accel.z = applyDeadzone(event.accelerationIncludingGravity.z || 0, 0.1);
         }
         if (event.rotationRate) {
-          // Konversi deg/s ke rad/s agar sesuai spesifikasi rancangan
           const deg2rad = Math.PI / 180;
           gyro.x = applyDeadzone((event.rotationRate.alpha || 0) * deg2rad, 0.05);
           gyro.y = applyDeadzone((event.rotationRate.beta || 0) * deg2rad, 0.05);
@@ -70,7 +65,6 @@
       if (!isRunning) {
         isRunning = true;
         document.getElementById("btnStart").style.display = "none";
-        // Kirim payload JSON setiap 50 ms (20 Hz) sesuai rancangan
         setInterval(() => {
           const payload = {
             device_id: "hp_presenter",
