@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import joblib
 
-TOPIC_TELEMETRY = "airpresenter/kelompok_05/telemetry"
+TOPIC_TELEMETRY = "airpresenter/kelompok_08/telemetry"
 CSV_FILE = "gesture_dataset.csv"
 MODEL_FILE = "model.pkl"
 WINDOW_SIZE = 20 
